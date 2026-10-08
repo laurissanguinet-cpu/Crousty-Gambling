@@ -1,9 +1,9 @@
 // --- CONFIGURATION SUPABASE SÉCURISÉE ---
-let supabase = null;
+let db = null;
 
 try {
   if (window.supabase && typeof window.supabase.createClient === 'function') {
-    supabase = window.supabase.createClient(
+    db = window.supabase.createClient(
       'https://abubtdiuhbxmklbhyhbw.supabase.co',
       'sb_publishable_VRwTTXtp0Kc18GiG-SWIBw_MwtZPJnW'
     );
@@ -116,9 +116,9 @@ async function saveGame() {
   };
   localStorage.setItem('croustyTycoonSave', JSON.stringify(data));
 
-  if (currentUserEmail && supabase) {
+  if (currentUserEmail && db) {
     try {
-      await supabase.from('players').upsert({
+      await db.from('players').upsert({
         email: currentUserEmail,
         pseudo: currentPseudo || currentUserEmail.split('@')[0],
         money: money,
@@ -215,8 +215,8 @@ async function submitCustomLogin() {
   currentPseudo = pseudoInput;
 
   try {
-    if (supabase) {
-      const { data, error } = await supabase
+    if (db) {
+      const { data, error } = await db
         .from('players')
         .select('*')
         .eq('email', currentUserEmail);
@@ -290,13 +290,13 @@ async function fetchLeaderboard() {
   if (!listEl) return;
   listEl.innerHTML = '<div style="text-align:center; color:var(--text-muted); padding:10px;">Chargement...</div>';
 
-  if (!supabase) {
-    listEl.innerHTML = '<div style="text-align:center; color:var(--red);">Supabase non initialisé.</div>';
+  if (!db) {
+    listEl.innerHTML = '<div style="text-align:center; color:var(--red);">Base de données non initialisée.</div>';
     return;
   }
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('players')
       .select('pseudo, money')
       .order('money', { ascending: false })

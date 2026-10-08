@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Crousty Gambling</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <!-- Client officiel Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+  <!-- Arrière-plan animé -->
+  <div id="rain-container"></div>
+
+  <header>
+    <div class="header-action-buttons">
+      <button class="btn-stats-open" onclick="openStatsModal()">
+        <span>📊</span> Menu & Classement
+      </button>
+    </div>
+
+    <div class="top-bar">
+      <!-- 1. COFFRE-FORT BLINDÉ -->
+      <div class="vault-box riveted-plate" id="vault-box-container">
+        <div class="vault-header">
+          <div>
+            <div class="vault-title"><span>🔒</span> Coffre Fort Blindé</div>
+            <div class="vault-val" id="bank-money">0,00 €</div>
+          </div>
+          <button class="btn-deposit" onclick="openDepositModal()">Déposer</button>
+        </div>
+
+        <div class="vault-timer-section">
+          <div class="vault-timer-row">
+            <span>Dividende +1,0 % :</span>
+            <span id="vault-countdown" style="color: var(--bank-blue); font-variant-numeric: tabular-nums;">10,0 s</span>
+          </div>
+          <div class="vault-timer-bar-bg">
+            <div id="vault-timer-bar" class="vault-timer-bar"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. PORTEFEUILLE CASINO -->
+      <div class="casino-wallet-frame riveted-plate" id="wallet-frame">
+        <div class="wallet-header-tag">
+          <span>💰</span> Bankroll • Portefeuille
+        </div>
+        <div class="wallet-amount" id="money">0,00 €</div>
+        <div class="income-rate">Revenu passif : <span id="passive-income">0,00</span> €/s</div>
+      </div>
+
+      <!-- 3. ACTION DE RUE -->
+      <div class="top-street-box" id="trash-container">
+        <div class="street-card riveted-plate" id="street-box">
+          <div class="street-card-badge">
+            <span>Ruelle clandestine</span>
+            <span style="color: var(--accent);">10 % Chance</span>
+          </div>
+          <button class="btn-street" id="btn-street" onclick="triggerStreetAction()">
+            <span id="street-icon" style="font-size: 1.3rem;">🗑️</span>
+            <span id="street-label">Fouiller une benne</span>
+          </button>
+          <div class="cooldown-bar-bg">
+            <div id="cooldown-fill" class="cooldown-bar"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="grid">
+    <!-- COLONNE 1 : ROULETTE -->
+    <div class="card riveted-plate" id="card-roulette">
+      <div id="roulette-banner" class="game-result-banner"></div>
+
+      <h2>🎡 Roulette</h2>
+      
+      <div class="roulette-container">
+        <div class="canvas-wrapper">
+          <div class="roulette-pointer"></div>
+          <canvas id="roulette-canvas" width="620" height="620"></canvas>
+        </div>
+        <div class="roulette-history-row">
+          <span style="color: var(--text-muted);">Derniers :</span>
+          <div id="roulette-history" style="display: flex; gap: 5px;"></div>
+        </div>
+      </div>
+
+      <div class="bet-panel">
+        <div class="bet-control-row">
+          <div class="bet-stepper">
+            <button class="btn-step-arrow" onclick="stepBet('roulette', -1)" title="Diminuer">◀</button>
+            <input type="number" id="roulette-bet" class="bet-input-clean" value="0.10" min="0.01" step="0.05" onwheel="handleWheelBet(event, 'roulette')" />
+            <button class="btn-step-arrow" onclick="stepBet('roulette', 1)" title="Augmenter">▶</button>
+          </div>
+        </div>
+        <div class="percent-grid">
+          <button class="chip-percent" id="r-bet-10" onclick="applyPercentBet('roulette', 0.10)">0,10 €</button>
+          <button class="chip-percent" id="r-bet-25" onclick="applyPercentBet('roulette', 0.25)">0,25 €</button>
+          <button class="chip-percent" id="r-bet-50" onclick="applyPercentBet('roulette', 0.50)">0,50 €</button>
+          <button class="chip-max" id="r-bet-100" onclick="applyPercentBet('roulette', 1.00)">Max</button>
+        </div>
+      </div>
+
+      <div class="tapis-bets">
+        <button class="btn-red" id="btn-r-rouge" onclick="playRoulette('rouge')">Rouge</button>
+        <button class="btn-black" id="btn-r-noir" onclick="playRoulette('noir')">Noir</button>
+        <button class="btn-green" id="btn-r-vert" onclick="playRoulette('vert')">0 Vert</button>
+      </div>
+    </div>
+
+    <!-- COLONNE 2 : BLACKJACK -->
+    <div class="card riveted-plate" id="card-bj">
+      <div id="bj-banner" class="game-result-banner"></div>
+
+      <h2>🃏 Blackjack</h2>
+
+      <div class="table-felt">
+        <div class="hand-container">
+          <div class="hand-header">Croupier (<span id="dealer-score">0</span>)</div>
+          <div class="cards-row" id="dealer-cards">
+            <div class="playing-card back">?</div>
+          </div>
+        </div>
+
+        <div id="hands-area-wrapper">
+          <div class="hand-container" id="player-hand-container-1">
+            <div class="hand-header">Joueur (<span id="player-score-1">0</span>)</div>
+            <div class="cards-row" id="player-cards-1"></div>
+          </div>
+          <div class="hand-container" id="player-hand-container-2" style="display: none; margin-top: 10px; border-top: 1px dashed rgba(255,255,255,0.2); padding-top: 6px;">
+            <div class="hand-header">Main 2 Split (<span id="player-score-2">0</span>)</div>
+            <div class="cards-row" id="player-cards-2"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="bj-betting-area" class="bet-panel" style="margin-top: 15px;">
+        <div class="bet-control-row">
+          <div class="bet-stepper">
+            <button class="btn-step-arrow" onclick="stepBet('bj', -1)" title="Diminuer">◀</button>
+            <input type="number" id="bj-bet" class="bet-input-clean" value="0.10" min="0.01" step="0.05" onwheel="handleWheelBet(event, 'bj')" />
+            <button class="btn-step-arrow" onclick="stepBet('bj', 1)" title="Augmenter">▶</button>
+          </div>
+        </div>
+        <div class="percent-grid">
+          <button class="chip-percent" id="bj-bet-10" onclick="applyPercentBet('bj', 0.10)">0,10 €</button>
+          <button class="chip-percent" id="bj-bet-25" onclick="applyPercentBet('bj', 0.25)">0,25 €</button>
+          <button class="chip-percent" id="bj-bet-50" onclick="applyPercentBet('bj', 0.50)">0,50 €</button>
+          <button class="chip-max" id="bj-bet-100" onclick="applyPercentBet('bj', 1.00)">Max</button>
+        </div>
+        <button id="btn-bj-deal" style="width: 100%; margin-top: 10px;" onclick="startBlackjack()">Distribuer</button>
+      </div>
+
+      <div id="bj-actions" style="display: none; margin-top: 15px; gap: 8px;">
+        <button id="btn-bj-hit" style="flex: 1; padding: 10px; font-size: 0.9rem;" onclick="bjHit()">🃏 Carte</button>
+        <button id="btn-bj-split" style="flex: 1; padding: 10px; font-size: 0.9rem; background: #8b5cf6; display: none;" onclick="bjSplit()">✂️ Split</button>
+        <button id="btn-bj-stand" style="flex: 1; padding: 10px; font-size: 0.9rem; background: #059669;" onclick="bjStand()">✋ Rester</button>
+      </div>
+    </div>
+
+    <!-- COLONNE 3 : CROUSTY -->
+    <div class="card riveted-plate" id="card-crousty">
+      <h2>🍗 Crousty</h2>
+
+      <div id="crousty-lock-overlay" class="crousty-lock-overlay">
+        <div class="crousty-lock-icon">🔒</div>
+        <button id="btn-first-crousty" class="btn-first-crousty" onclick="buyCrousty()">
+          Acheter (10,00 €)
+        </button>
+      </div>
+
+      <div class="crousty-visual-box">
+        <div class="crousty-frame">
+          <img id="crousty-img" src="crousty.png" alt="Crousty" draggable="false" onerror="this.src='crousty.jpg'" />
+          <div class="crousty-tag" id="crousty-multiplier">x1</div>
+        </div>
+
+        <div class="crousty-timer-container" id="crousty-timer-box">
+          <div class="crousty-timer-row">
+            <span>Production (1 min) :</span>
+            <span id="crousty-countdown" style="color: var(--accent); font-variant-numeric: tabular-nums;">60,0 s</span>
+          </div>
+          <div class="crousty-progress-bg">
+            <div id="crousty-progress-bar" class="crousty-progress-bar"></div>
+          </div>
+          <button id="btn-collect" class="btn-collect" onclick="collectCroustyRevenue()">
+            💰 Récolter <span id="collect-amount">0,00 €</span>
+          </button>
+        </div>
+      </div>
+
+      <button class="crousty-btn" id="buy-crousty" onclick="buyCrousty()">
+        Acheter un Crousty (<span id="crousty-cost">10,00</span> €)
+      </button>
+    </div>
+  </div>
+
+  <!-- POPUP DÉPÔT BANCAIRE -->
+  <div id="bank-modal-bg" class="bank-modal-bg" onclick="closeDepositModal(event)">
+    <div class="bank-modal" onclick="event.stopPropagation()">
+      <h3>🏦 Déposer au Coffre</h3>
+      <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0; line-height: 1.4;">
+        L'argent déposé est <strong>bloqué définitivement</strong>. Il génère <strong>+1,0 % d'intérêts</strong> versés sur ton portefeuille à la fin de chaque cycle de 10 secondes.
+      </p>
+
+      <div class="percent-grid" style="margin: 15px 0;">
+        <button class="chip-percent" onclick="applyDepositPercent(0.25)">25 %</button>
+        <button class="chip-percent" onclick="applyDepositPercent(0.50)">50 %</button>
+        <button class="chip-percent" onclick="applyDepositPercent(0.75)">75 %</button>
+        <button class="chip-max" onclick="applyDepositPercent(1.00)">Tout</button>
+      </div>
+
+      <div style="display: flex; gap: 8px; margin-bottom: 15px;">
+        <input type="number" id="deposit-input" class="bet-input-clean" style="border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; width: 100%; text-align: left; padding: 10px;" value="1.00" min="0.01" step="0.50" />
+      </div>
+
+      <div style="display: flex; gap: 10px;">
+        <button style="flex: 1; background: #334155;" onclick="closeDepositModal()">Annuler</button>
+        <button style="flex: 1; background: var(--bank-blue); color: #082f49;" onclick="confirmDeposit()">Déposer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- POPUP STATISTIQUES, CLASSEMENT ET CONNEXION SÉPARÉS -->
+  <div id="stats-modal-bg" class="stats-modal-bg" onclick="closeStatsModal(event)">
+    <div class="stats-modal" onclick="event.stopPropagation()">
+      <h3>📊 Centre de Contrôle</h3>
+
+      <!-- Onglets distincts -->
+      <div class="modal-tabs">
+        <button id="tab-btn-stats" class="tab-btn active" onclick="switchModalTab('stats')">📈 Statistiques</button>
+        <button id="tab-btn-leaderboard" class="tab-btn" onclick="switchModalTab('leaderboard')">🌐 Classement</button>
+      </div>
+
+      <!-- Contenu Onglet Statistiques -->
+      <div id="tab-content-stats" class="tab-content active">
+        <div class="stat-section-title">Général</div>
+        <div class="stat-row">
+          <span class="stat-label">Temps de jeu :</span>
+          <span class="stat-value" id="stat-time">0 min 00 s</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Argent total gagné :</span>
+          <span class="stat-value" id="stat-earned">0,00 €</span>
+        </div>
+
+        <div class="stat-section-title">Roulette</div>
+        <div class="stat-row">
+          <span class="stat-label">Gains Roulette :</span>
+          <span class="stat-value" id="stat-roulette-earned">0,00 €</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Plus gros gain :</span>
+          <span class="stat-value" id="stat-roulette-max">0,00 €</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Taux de réussite :</span>
+          <span class="stat-value" id="stat-roulette-wr">0 %</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Verts gagnés (0) :</span>
+          <span class="stat-value" id="stat-green-wins">0</span>
+        </div>
+
+        <div class="stat-section-title">Blackjack</div>
+        <div class="stat-row">
+          <span class="stat-label">Gains Blackjack :</span>
+          <span class="stat-value" id="stat-bj-earned">0,00 €</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Plus gros gain :</span>
+          <span class="stat-value" id="stat-bj-max">0,00 €</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Taux de réussite :</span>
+          <span class="stat-value" id="stat-bj-wr">0 %</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Blackjacks naturels :</span>
+          <span class="stat-value" id="stat-natural-bj">0</span>
+        </div>
+      </div>
+
+      <!-- Contenu Onglet Classement -->
+      <div id="tab-content-leaderboard" class="tab-content" style="display: none;">
+        <div class="stat-section-title" style="margin-top:0;">Top Tycoons Mondiaux</div>
+        <div id="leaderboard-list" style="display: flex; flex-direction: column; gap: 6px; max-height: 180px; overflow-y: auto; margin-bottom: 15px;">
+          <div class="stat-row" style="background: #162030; padding: 8px 10px; border-radius: 8px;">
+            <span>🥇 <strong>CroustyKing99</strong></span>
+            <span style="color: var(--accent);">45 230,00 €</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bouton de Connexion Gmail placé en dessous des onglets -->
+      <div class="auth-section-box">
+        <div id="auth-status-text" style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 6px; text-align: center;">Statut : Non connecté</div>
+        <button class="btn-auth-modal" id="btn-auth-modal" onclick="handleGoogleLogin()">
+          <span>🌐</span> <span id="auth-btn-label">Se connecter avec Gmail</span>
+        </button>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 15px;">
+        <button style="background: var(--red); color: white;" onclick="resetProfile()">⚠ Réinitialiser le profil</button>
+        <button style="background: #334155;" onclick="closeStatsModal()">Fermer</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+  <script src="casino.js"></script>
+</body>
+</html>

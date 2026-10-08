@@ -82,10 +82,10 @@ header {
   padding-bottom: 22px;
   border-bottom: 1px solid var(--card-border);
   position: relative;
-  min-height: 80px;
+  min-height: 100px;
 }
 
-/* Les 3 boutons verticaux en haut à droite */
+/* Les 3 boutons verticaux en haut à droite et le badge pop-up */
 .header-action-buttons {
   position: absolute;
   top: 0;
@@ -131,6 +131,26 @@ header {
   color: var(--bank-blue);
 }
 .btn-auth-action:hover { border-color: var(--bank-blue); background: #1e293b; transform: translateY(-1px); }
+
+/* Pop-up "Prochaine mise à jour bientôt" */
+.update-popup-badge {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(217, 119, 6, 0.25) 100%);
+  border: 1px dashed var(--accent);
+  color: var(--accent);
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-align: center;
+  width: 175px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+  animation: pulseUpdate 2s infinite ease-in-out;
+}
+
+@keyframes pulseUpdate {
+  0%, 100% { opacity: 0.85; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.02); border-color: #fef08a; color: #fef08a; }
+}
 
 .top-bar {
   display: flex;

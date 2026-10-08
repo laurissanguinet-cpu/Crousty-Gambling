@@ -77,6 +77,13 @@ let naturalBjCount = 0;
 
 let sessionStartTime = Date.now();
 
+// Calcul direct du revenu passif par seconde
+function getTotalPassiveRatePerSec() {
+  let croustyPerSec = (crousties * croustyIncomePerMin) / 60;
+  let bankPerSec = (bankMoney * 0.01) / 10;
+  return croustyPerSec + bankPerSec;
+}
+
 function loadGame() {
   const saved = localStorage.getItem('croustyTycoonSave');
   if (saved) {
@@ -118,10 +125,12 @@ async function saveGame() {
 
   if (currentUserEmail && db) {
     try {
+      // On sauvegarde le revenu par seconde dans la colonne money pour trier le classement
+      const passiveRate = getTotalPassiveRatePerSec();
       await db.from('players').upsert({
         email: currentUserEmail,
         pseudo: currentPseudo || currentUserEmail.split('@')[0],
-        money: money,
+        money: passiveRate,
         save_data: data,
         updated_at: new Date()
       }, { onConflict: 'email' });
@@ -317,11 +326,12 @@ async function fetchLeaderboard() {
       let medals = ['🥇', '🥈', '🥉'];
       let rankIcon = medals[index] || `#${index + 1}`;
       let playerName = player.pseudo || "Anonyme";
+      let passiveRate = player.money || 0;
 
       const row = document.createElement('div');
       row.className = 'stat-row';
       row.style.cssText = "background: #162030; padding: 8px 10px; border-radius: 8px;";
-      row.innerHTML = `<span>${rankIcon} <strong>${playerName}</strong></span><span style="color: var(--accent);">${formatMoney(player.money)}</span>`;
+      row.innerHTML = `<span>${rankIcon} <strong>${playerName}</strong></span><span style="color: var(--accent);">${formatMoney(passiveRate)}/s</span>`;
       listEl.appendChild(row);
     });
   } catch (err) {
@@ -366,12 +376,6 @@ function calcBetAmount(percent) {
   if (percent >= 1.0) return Math.max(0.01, totalCents / 100);
   let betCents = Math.floor((totalCents * percent) + 0.00001);
   return Math.max(0.01, betCents / 100);
-}
-
-function getTotalPassiveRatePerSec() {
-  let croustyPerSec = (crousties * croustyIncomePerMin) / 60;
-  let bankPerSec = (bankMoney * 0.01) / 10;
-  return croustyPerSec + bankPerSec;
 }
 
 function triggerWalletPulse(type) {

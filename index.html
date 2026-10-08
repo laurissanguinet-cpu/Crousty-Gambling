@@ -25,7 +25,7 @@
       <button class="btn-menu-action btn-leaderboard-action" onclick="openLeaderboardModal()">
         <span>🌐</span> Classement
       </button>
-      <button class="btn-menu-action btn-auth-action" id="btn-auth-action" onclick="handleGoogleLogin()">
+      <button class="btn-menu-action btn-auth-action" id="btn-auth-action" onclick="openAuthModal()">
         <span>🔑</span> <span id="auth-btn-label">Connexion</span>
       </button>
     </div>
@@ -231,6 +231,32 @@
         <button style="flex: 1; background: #334155;" onclick="closeDepositModal()">Annuler</button>
         <button style="flex: 1; background: var(--bank-blue); color: #082f49;" onclick="confirmDeposit()">Déposer</button>
       </div>
+    </div>
+  </div>
+
+  <!-- POPUP CONNEXION / PROFIL -->
+  <div id="auth-modal-bg" class="stats-modal-bg" onclick="closeAuthModal(event)">
+    <div class="stats-modal" onclick="event.stopPropagation()">
+      <h3>🔑 Espace Tycoon & Connexion</h3>
+      <div id="auth-form-container">
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0;">
+          Entre ton e-mail et ton pseudo pour enregistrer ta partie dans le classement mondial.
+        </p>
+        <div style="margin-bottom: 12px;">
+          <label style="font-size: 0.78rem; color: var(--text-muted); display:block; margin-bottom:4px;">Adresse e-mail :</label>
+          <input type="email" id="auth-email-input" class="bet-input-clean" style="border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; width: 100%; text-align: left; padding: 10px;" placeholder="ton.email@gmail.com" />
+        </div>
+        <div style="margin-bottom: 16px;">
+          <label style="font-size: 0.78rem; color: var(--text-muted); display:block; margin-bottom:4px;">Pseudo pour le classement :</label>
+          <input type="text" id="auth-pseudo-input" class="bet-input-clean" style="border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; width: 100%; text-align: left; padding: 10px;" placeholder="Ex: CroustyKing" />
+        </div>
+        <button style="width: 100%; background: var(--green); color: white; margin-bottom: 8px;" onclick="submitCustomLogin()">💾 Enregistrer & Se connecter</button>
+      </div>
+      <div id="auth-logged-container" style="display: none; text-align: center;">
+        <p style="color: var(--green); font-weight: 700; margin-bottom: 15px;" id="logged-user-info"></p>
+        <button style="width: 100%; background: var(--red); color: white; margin-bottom: 8px;" onclick="logoutCustomUser()">🚪 Se déconnecter</button>
+      </div>
+      <button style="width: 100%; background: #334155;" onclick="closeAuthModal()">Fermer</button>
     </div>
   </div>
 

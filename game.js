@@ -1,9 +1,15 @@
-// --- CONFIGURATION SUPABASE ---
-if (typeof supabase === 'undefined') {
-  var supabase = window.supabase.createClient(
-    'https://abubtdiuhbxmklbhyhbw.supabase.co',
-    'sb_publishable_VRwTTXtp0Kc18GiG-SWIBw_MwtZPJnW'
-  );
+// --- CONFIGURATION SUPABASE SÉCURISÉE ---
+let supabase = null;
+
+try {
+  if (window.supabase && typeof window.supabase.createClient === 'function') {
+    supabase = window.supabase.createClient(
+      'https://abubtdiuhbxmklbhyhbw.supabase.co',
+      'sb_publishable_VRwTTXtp0Kc18GiG-SWIBw_MwtZPJnW'
+    );
+  }
+} catch (e) {
+  console.error("Erreur d'initialisation Supabase:", e);
 }
 
 let currentUserEmail = null;
@@ -96,7 +102,7 @@ function loadGame() {
       currentUserEmail = data.currentUserEmail ?? null;
       currentPseudo = data.currentPseudo ?? null;
     } catch (e) {
-      console.error("Erreur chargement sauvegarde locale", e);
+      console.error("Erreur chargement local", e);
     }
   }
   sessionStartTime = Date.now() - (gameSeconds * 1000);
@@ -110,19 +116,17 @@ async function saveGame() {
   };
   localStorage.setItem('croustyTycoonSave', JSON.stringify(data));
 
-  if (currentUserEmail) {
+  if (currentUserEmail && supabase) {
     try {
-      const { error } = await supabase.from('players').upsert({
+      await supabase.from('players').upsert({
         email: currentUserEmail,
         pseudo: currentPseudo || currentUserEmail.split('@')[0],
         money: money,
         save_data: data,
         updated_at: new Date()
       }, { onConflict: 'email' });
-
-      if (error) console.error("Erreur Supabase saveGame:", error.message);
     } catch (err) {
-      console.error("Erreur réseau saveGame:", err);
+      console.error("Erreur saveGame cloud :", err);
     }
   }
 }
@@ -171,7 +175,7 @@ function closeLeaderboardModal() {
   document.getElementById('leaderboard-modal-bg').style.display = 'none';
 }
 
-// Gestion de la modale de connexion
+// Connexion personnalisée
 function openAuthModal() {
   const formBox = document.getElementById('auth-form-container');
   const loggedBox = document.getElementById('auth-logged-container');
@@ -211,43 +215,39 @@ async function submitCustomLogin() {
   currentPseudo = pseudoInput;
 
   try {
-    // Chercher la sauvegarde de cet e-mail dans Supabase
-    const { data, error } = await supabase
-      .from('players')
-      .select('money, save_data, pseudo')
-      .eq('email', currentUserEmail)
-      .maybeSingle();
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('players')
+        .select('*')
+        .eq('email', currentUserEmail);
 
-    if (error) {
-      console.error("Erreur lors de la recherche du profil:", error);
-    }
-
-    if (data && data.save_data) {
-      let s = data.save_data;
-      money = s.money ?? 0;
-      bankMoney = s.bankMoney ?? 0;
-      crousties = s.crousties ?? 0;
-      gameSeconds = s.gameSeconds ?? 0;
-      totalMoneyEarned = s.totalMoneyEarned ?? 0;
-      rouletteTotalGames = s.rouletteTotalGames ?? 0;
-      rouletteWins = s.rouletteWins ?? 0;
-      rouletteTotalEarned = s.rouletteTotalEarned ?? 0;
-      rouletteMaxGain = s.rouletteMaxGain ?? 0;
-      greenWinsCount = s.greenWinsCount ?? 0;
-      bjTotalGames = s.bjTotalGames ?? 0;
-      bjWins = s.bjWins ?? 0;
-      bjTotalEarned = s.bjTotalEarned ?? 0;
-      bjMaxGain = s.bjMaxGain ?? 0;
-      naturalBjCount = s.naturalBjCount ?? 0;
-      currentPseudo = data.pseudo || currentPseudo;
-      sessionStartTime = Date.now() - (gameSeconds * 1000);
-      alert(`Bon retour ${currentPseudo} ! Votre progression a été restaurée.`);
-    } else {
-      await saveGame();
-      alert(`Compte créé avec succès ! Bienvenue ${currentPseudo}.`);
+      if (data && data.length > 0 && data[0].save_data) {
+        let s = data[0].save_data;
+        money = s.money ?? 0;
+        bankMoney = s.bankMoney ?? 0;
+        crousties = s.crousties ?? 0;
+        gameSeconds = s.gameSeconds ?? 0;
+        totalMoneyEarned = s.totalMoneyEarned ?? 0;
+        rouletteTotalGames = s.rouletteTotalGames ?? 0;
+        rouletteWins = s.rouletteWins ?? 0;
+        rouletteTotalEarned = s.rouletteTotalEarned ?? 0;
+        rouletteMaxGain = s.rouletteMaxGain ?? 0;
+        greenWinsCount = s.greenWinsCount ?? 0;
+        bjTotalGames = s.bjTotalGames ?? 0;
+        bjWins = s.bjWins ?? 0;
+        bjTotalEarned = s.bjTotalEarned ?? 0;
+        bjMaxGain = s.bjMaxGain ?? 0;
+        naturalBjCount = s.naturalBjCount ?? 0;
+        currentPseudo = data[0].pseudo || currentPseudo;
+        sessionStartTime = Date.now() - (gameSeconds * 1000);
+        alert(`Bon retour ${currentPseudo} ! Progression restaurée.`);
+      } else {
+        await saveGame();
+        alert(`Compte créé avec succès ! Bienvenue ${currentPseudo}.`);
+      }
     }
   } catch (err) {
-    console.error("Erreur critique connexion:", err);
+    console.error("Erreur connexion:", err);
     await saveGame();
   }
 
@@ -257,11 +257,10 @@ async function submitCustomLogin() {
 }
 
 function logoutCustomUser() {
-  if (confirm("Voulez-vous vous déconnecter ? Votre partie locale sera remise à zéro (vos données restent sur le cloud).")) {
+  if (confirm("Voulez-vous vous déconnecter ? Votre partie locale sera remise à zéro.")) {
     currentUserEmail = null;
     currentPseudo = null;
     
-    // Remettre à zéro
     money = 0.00;
     bankMoney = 0.00;
     crousties = 0;
@@ -282,14 +281,19 @@ function logoutCustomUser() {
     updateUI();
     updateAuthUI();
     document.getElementById('auth-modal-bg').style.display = 'none';
-    alert("Vous êtes déconnecté. Jeu réinitialisé à zéro.");
+    alert("Déconnecté. Jeu remis à zéro.");
   }
 }
 
 async function fetchLeaderboard() {
   const listEl = document.getElementById('leaderboard-list');
   if (!listEl) return;
-  listEl.innerHTML = '<div style="text-align:center; color:var(--text-muted); padding:10px;">Chargement du classement...</div>';
+  listEl.innerHTML = '<div style="text-align:center; color:var(--text-muted); padding:10px;">Chargement...</div>';
+
+  if (!supabase) {
+    listEl.innerHTML = '<div style="text-align:center; color:var(--red);">Supabase non initialisé.</div>';
+    return;
+  }
 
   try {
     const { data, error } = await supabase
@@ -299,14 +303,13 @@ async function fetchLeaderboard() {
       .limit(10);
 
     if (error) {
-      console.error("Erreur SQL Leaderboard:", error);
-      listEl.innerHTML = `<div style="text-align:center; color:var(--red);">Erreur Supabase: ${error.message}</div>`;
+      listEl.innerHTML = `<div style="text-align:center; color:var(--red);">Erreur: ${error.message}</div>`;
       return;
     }
 
     listEl.innerHTML = '';
     if (!data || data.length === 0) {
-      listEl.innerHTML = '<div style="text-align:center; color:var(--text-muted); padding:10px;">Aucun joueur dans le classement pour l\'instant.</div>';
+      listEl.innerHTML = '<div style="text-align:center; color:var(--text-muted); padding:10px;">Aucun joueur dans le classement.</div>';
       return;
     }
 
@@ -322,8 +325,7 @@ async function fetchLeaderboard() {
       listEl.appendChild(row);
     });
   } catch (err) {
-    console.error("Erreur réseau Leaderboard:", err);
-    listEl.innerHTML = '<div style="text-align:center; color:var(--red);">Impossible de joindre la base de données.</div>';
+    listEl.innerHTML = '<div style="text-align:center; color:var(--red);">Erreur de chargement.</div>';
   }
 }
 
@@ -336,7 +338,7 @@ function updateAuthUI() {
   }
 }
 
-// Utilitaires de jeu
+// Fonctions utilitaires de jeu
 function handleWheelBet(event, gameType) {
   event.preventDefault();
   let direction = event.deltaY < 0 ? 1 : -1;

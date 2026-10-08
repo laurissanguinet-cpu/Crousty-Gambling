@@ -164,7 +164,7 @@ function closeLeaderboardModal() {
   document.getElementById('leaderboard-modal-bg').style.display = 'none';
 }
 
-// Connexion Google via Supabase OAuth
+// Connexion simple par e-mail
 async function handleGoogleLogin() {
   if (currentUser) {
     if (confirm(`Se déconnecter de ${currentUser.email} (${currentPseudo}) ?`)) {
@@ -177,15 +177,23 @@ async function handleGoogleLogin() {
     return;
   }
 
-  const { error } = await supabase.auth.signInWithOAuth({
-    provider: 'google',
+  let email = prompt("Entrez votre adresse e-mail pour vous connecter ou créer un compte :");
+  if (!email || !email.includes('@')) {
+    if (email !== null) alert("Veuillez entrer une adresse e-mail valide.");
+    return;
+  }
+
+  const { error } = await supabase.auth.signInWithOtp({
+    email: email.trim(),
     options: {
-      redirectTo: window.location.origin + window.location.pathname
+      emailRedirectTo: window.location.origin + window.location.pathname
     }
   });
 
   if (error) {
-    alert("Erreur de connexion : " + error.message);
+    alert("Erreur : " + error.message);
+  } else {
+    alert(`Un lien de connexion magique a été envoyé à ${email}. Vérifiez votre boîte mail !`);
   }
 }
 
@@ -274,7 +282,7 @@ function updateAuthUI() {
   if (currentUser) {
     label.innerText = currentPseudo || currentUser.email.split('@')[0];
   } else {
-    label.innerText = "Connexion Gmail";
+    label.innerText = "Connexion";
   }
 }
 

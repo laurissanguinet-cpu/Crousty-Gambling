@@ -56,6 +56,9 @@ let crousties = 0;
 let croustyBaseCost = 10.00;
 let croustyIncomePerMin = 3.00;
 
+// Variable dédiée au revenu passif par seconde
+let passiveIncomePerSec = 0.00;
+
 let bankTimer = 10.0;
 let croustyMinuteTimer = 60.0;
 let croustyProductionFinished = false;
@@ -77,11 +80,11 @@ let naturalBjCount = 0;
 
 let sessionStartTime = Date.now();
 
-// Calcul direct du revenu passif par seconde
-function getTotalPassiveRatePerSec() {
+// Calcul et mise à jour de la variable du revenu passif
+function updatePassiveIncome() {
   let croustyPerSec = (crousties * croustyIncomePerMin) / 60;
   let bankPerSec = (bankMoney * 0.01) / 10;
-  return croustyPerSec + bankPerSec;
+  passiveIncomePerSec = croustyPerSec + bankPerSec;
 }
 
 function loadGame() {
@@ -112,12 +115,14 @@ function loadGame() {
       console.error("Erreur chargement local", e);
     }
   }
+  updatePassiveIncome();
   sessionStartTime = Date.now() - (gameSeconds * 1000);
 }
 
 async function saveGame() {
+  updatePassiveIncome();
   const data = {
-    money, bankMoney, crousties, gameSeconds, totalMoneyEarned,
+    money, bankMoney, crousties, gameSeconds, totalMoneyEarned, passiveIncomePerSec,
     rouletteTotalGames, rouletteWins, rouletteTotalEarned, rouletteMaxGain, greenWinsCount,
     bjTotalGames, bjWins, bjTotalEarned, bjMaxGain, naturalBjCount, currentUserEmail, currentPseudo
   };
@@ -125,12 +130,11 @@ async function saveGame() {
 
   if (currentUserEmail && db) {
     try {
-      // On sauvegarde le revenu par seconde dans la colonne money pour trier le classement
-      const passiveRate = getTotalPassiveRatePerSec();
+      // On envoie la variable passiveIncomePerSec dans la colonne money de Supabase pour le classement
       await db.from('players').upsert({
         email: currentUserEmail,
         pseudo: currentPseudo || currentUserEmail.split('@')[0],
-        money: passiveRate,
+        money: passiveIncomePerSec,
         save_data: data,
         updated_at: new Date()
       }, { onConflict: 'email' });
@@ -237,6 +241,7 @@ async function submitCustomLogin() {
         crousties = s.crousties ?? 0;
         gameSeconds = s.gameSeconds ?? 0;
         totalMoneyEarned = s.totalMoneyEarned ?? 0;
+        passiveIncomePerSec = s.passiveIncomePerSec ?? 0;
         rouletteTotalGames = s.rouletteTotalGames ?? 0;
         rouletteWins = s.rouletteWins ?? 0;
         rouletteTotalEarned = s.rouletteTotalEarned ?? 0;
@@ -260,6 +265,7 @@ async function submitCustomLogin() {
     await saveGame();
   }
 
+  updatePassiveIncome();
   updateUI();
   updateAuthUI();
   document.getElementById('auth-modal-bg').style.display = 'none';
@@ -273,6 +279,7 @@ function logoutCustomUser() {
     money = 0.00;
     bankMoney = 0.00;
     crousties = 0;
+    passiveIncomePerSec = 0.00;
     gameSeconds = 0;
     totalMoneyEarned = 0.00;
     rouletteTotalGames = 0;
@@ -287,6 +294,7 @@ function logoutCustomUser() {
     naturalBjCount = 0;
 
     localStorage.removeItem('croustyTycoonSave');
+    updatePassiveIncome();
     updateUI();
     updateAuthUI();
     document.getElementById('auth-modal-bg').style.display = 'none';
@@ -326,12 +334,12 @@ async function fetchLeaderboard() {
       let medals = ['🥇', '🥈', '🥉'];
       let rankIcon = medals[index] || `#${index + 1}`;
       let playerName = player.pseudo || "Anonyme";
-      let passiveRate = player.money || 0;
+      let ratePerSec = player.money || 0;
 
       const row = document.createElement('div');
       row.className = 'stat-row';
       row.style.cssText = "background: #162030; padding: 8px 10px; border-radius: 8px;";
-      row.innerHTML = `<span>${rankIcon} <strong>${playerName}</strong></span><span style="color: var(--accent);">${formatMoney(passiveRate)}/s</span>`;
+      row.innerHTML = `<span>${rankIcon} <strong>${playerName}</strong></span><span style="color: var(--accent);">${formatMoney(ratePerSec)}/s</span>`;
       listEl.appendChild(row);
     });
   } catch (err) {
@@ -389,10 +397,11 @@ function triggerWalletPulse(type) {
 function updateUI() {
   money = Math.round(money * 100) / 100;
   bankMoney = Math.round(bankMoney * 100) / 100;
+  updatePassiveIncome();
 
   document.getElementById('money').innerText = formatMoney(money);
   document.getElementById('bank-money').innerText = formatMoney(bankMoney);
-  document.getElementById('passive-income').innerText = getTotalPassiveRatePerSec().toFixed(2).replace('.', ',');
+  document.getElementById('passive-income').innerText = passiveIncomePerSec.toFixed(2).replace('.', ',');
 
   const cardCrousty = document.getElementById('card-crousty');
   const lockOverlay = document.getElementById('crousty-lock-overlay');

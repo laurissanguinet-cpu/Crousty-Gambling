@@ -96,7 +96,7 @@ function loadGame() {
       currentUserEmail = data.currentUserEmail ?? null;
       currentPseudo = data.currentPseudo ?? null;
     } catch (e) {
-      console.error("Erreur chargement sauvegarde", e);
+      console.error("Erreur chargement sauvegarde locale", e);
     }
   }
   sessionStartTime = Date.now() - (gameSeconds * 1000);
@@ -112,15 +112,17 @@ async function saveGame() {
 
   if (currentUserEmail) {
     try {
-      await supabase.from('players').upsert({
+      const { error } = await supabase.from('players').upsert({
         email: currentUserEmail,
         pseudo: currentPseudo || currentUserEmail.split('@')[0],
         money: money,
         save_data: data,
         updated_at: new Date()
       }, { onConflict: 'email' });
+
+      if (error) console.error("Erreur Supabase saveGame:", error.message);
     } catch (err) {
-      console.error("Erreur de sauvegarde cloud :", err);
+      console.error("Erreur réseau saveGame:", err);
     }
   }
 }
@@ -208,19 +210,24 @@ async function submitCustomLogin() {
   currentUserEmail = emailInput;
   currentPseudo = pseudoInput;
 
-  // Interroger Supabase pour récupérer la sauvegarde de cet e-mail s'il existe
   try {
+    // Chercher la sauvegarde de cet e-mail dans Supabase
     const { data, error } = await supabase
       .from('players')
       .select('money, save_data, pseudo')
       .eq('email', currentUserEmail)
       .maybeSingle();
 
+    if (error) {
+      console.error("Erreur lors de la recherche du profil:", error);
+    }
+
     if (data && data.save_data) {
       let s = data.save_data;
       money = s.money ?? 0;
       bankMoney = s.bankMoney ?? 0;
       crousties = s.crousties ?? 0;
+      gameSeconds = s.gameSeconds ?? 0;
       totalMoneyEarned = s.totalMoneyEarned ?? 0;
       rouletteTotalGames = s.rouletteTotalGames ?? 0;
       rouletteWins = s.rouletteWins ?? 0;
@@ -233,19 +240,20 @@ async function submitCustomLogin() {
       bjMaxGain = s.bjMaxGain ?? 0;
       naturalBjCount = s.naturalBjCount ?? 0;
       currentPseudo = data.pseudo || currentPseudo;
-      alert(`Bon retour ${currentPseudo} ! Votre progression a été chargée.`);
+      sessionStartTime = Date.now() - (gameSeconds * 1000);
+      alert(`Bon retour ${currentPseudo} ! Votre progression a été restaurée.`);
     } else {
       await saveGame();
       alert(`Compte créé avec succès ! Bienvenue ${currentPseudo}.`);
     }
   } catch (err) {
-    console.error("Erreur de connexion cloud :", err);
+    console.error("Erreur critique connexion:", err);
     await saveGame();
   }
 
   updateUI();
   updateAuthUI();
-  document.getElementById('auth-modal-bg').style.display = 'none'; // Ferme le menu de connexion
+  document.getElementById('auth-modal-bg').style.display = 'none';
 }
 
 function logoutCustomUser() {
@@ -253,7 +261,7 @@ function logoutCustomUser() {
     currentUserEmail = null;
     currentPseudo = null;
     
-    // Remettre toutes les statistiques locales à zéro
+    // Remettre à zéro
     money = 0.00;
     bankMoney = 0.00;
     crousties = 0;
@@ -291,7 +299,8 @@ async function fetchLeaderboard() {
       .limit(10);
 
     if (error) {
-      listEl.innerHTML = `<div style="text-align:center; color:var(--red);">Erreur: ${error.message}</div>`;
+      console.error("Erreur SQL Leaderboard:", error);
+      listEl.innerHTML = `<div style="text-align:center; color:var(--red);">Erreur Supabase: ${error.message}</div>`;
       return;
     }
 
@@ -313,7 +322,8 @@ async function fetchLeaderboard() {
       listEl.appendChild(row);
     });
   } catch (err) {
-    listEl.innerHTML = '<div style="text-align:center; color:var(--red);">Impossible de charger le classement.</div>';
+    console.error("Erreur réseau Leaderboard:", err);
+    listEl.innerHTML = '<div style="text-align:center; color:var(--red);">Impossible de joindre la base de données.</div>';
   }
 }
 

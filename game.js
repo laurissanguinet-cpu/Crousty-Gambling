@@ -110,11 +110,11 @@ async function saveGame() {
   };
   localStorage.setItem('croustyTycoonSave', JSON.stringify(data));
 
-  // Si l'utilisateur est connecté, on enregistre directement ses stats et son pseudo dans la table Supabase
-  if (currentUserEmail && currentPseudo) {
+  // Synchronisation Cloud Supabase si un e-mail est connecté
+  if (currentUserEmail) {
     await supabase.from('players').upsert({
       email: currentUserEmail,
-      pseudo: currentPseudo,
+      pseudo: currentPseudo || currentUserEmail.split('@')[0],
       money: money,
       save_data: data,
       updated_at: new Date()
@@ -166,7 +166,7 @@ function closeLeaderboardModal() {
   document.getElementById('leaderboard-modal-bg').style.display = 'none';
 }
 
-// Gestion de la modale de connexion personnalisée
+// Gestion de la modale de connexion par e-mail avec récupération de sauvegarde
 function openAuthModal() {
   const formBox = document.getElementById('auth-form-container');
   const loggedBox = document.getElementById('auth-logged-container');
@@ -175,7 +175,7 @@ function openAuthModal() {
   if (currentUserEmail) {
     formBox.style.display = 'none';
     loggedBox.style.display = 'block';
-    infoText.innerText = `Connecté en tant que : ${currentPseudo} (${currentUserEmail})`;
+    infoText.innerText = `Connecté : ${currentPseudo} (${currentUserEmail})`;
   } else {
     formBox.style.display = 'block';
     loggedBox.style.display = 'none';
@@ -205,11 +205,43 @@ async function submitCustomLogin() {
   currentUserEmail = emailInput;
   currentPseudo = pseudoInput;
 
-  // Enregistrement immédiat dans Supabase
-  await saveGame();
+  // 1. Vérifier si un compte existe déjà dans Supabase pour cet e-mail
+  const { data, error } = await supabase
+    .from('players')
+    .select('money, save_data, pseudo')
+    .eq('email', currentUserEmail)
+    .single();
+
+  if (data) {
+    // Si la sauvegarde cloud existe, on la récupère !
+    if (data.save_data) {
+      let s = data.save_data;
+      money = s.money ?? money;
+      bankMoney = s.bankMoney ?? bankMoney;
+      crousties = s.crousties ?? crousties;
+      totalMoneyEarned = s.totalMoneyEarned ?? totalMoneyEarned;
+      rouletteTotalGames = s.rouletteTotalGames ?? rouletteTotalGames;
+      rouletteWins = s.rouletteWins ?? rouletteWins;
+      rouletteTotalEarned = s.rouletteTotalEarned ?? rouletteTotalEarned;
+      rouletteMaxGain = s.rouletteMaxGain ?? rouletteMaxGain;
+      greenWinsCount = s.greenWinsCount ?? greenWinsCount;
+      bjTotalGames = s.bjTotalGames ?? bjTotalGames;
+      bjWins = s.bjWins ?? bjWins;
+      bjTotalEarned = s.bjTotalEarned ?? bjTotalEarned;
+      bjMaxGain = s.bjMaxGain ?? bjMaxGain;
+      naturalBjCount = s.naturalBjCount ?? naturalBjCount;
+    }
+    currentPseudo = data.pseudo || currentPseudo;
+    alert(`Bon retour ${currentPseudo} ! Votre progression a été restaurée depuis le cloud.`);
+  } else {
+    // Sinon, on crée le nouveau joueur dans Supabase
+    await saveGame();
+    alert(`Compte créé avec succès ! Bienvenue ${currentPseudo}.`);
+  }
+
+  updateUI();
   updateAuthUI();
   document.getElementById('auth-modal-bg').style.display = 'none';
-  alert(`Connexion réussie ! Bienvenue ${currentPseudo}.`);
 }
 
 function logoutCustomUser() {
@@ -234,14 +266,14 @@ async function fetchLeaderboard() {
     .order('money', { ascending: false })
     .limit(10);
 
-  if (error || !data) {
-    listEl.innerHTML = '<div style="text-align:center; color:var(--red);">Erreur de chargement du classement.</div>';
+  if (error) {
+    listEl.innerHTML = `<div style="text-align:center; color:var(--red);">Erreur SQL: ${error.message}</div>`;
     return;
   }
 
   listEl.innerHTML = '';
-  if (data.length === 0) {
-    listEl.innerHTML = '<div style="text-align:center; color:var(--text-muted); padding:10px;">Aucun joueur enregistré pour le moment.</div>';
+  if (!data || data.length === 0) {
+    listEl.innerHTML = '<div style="text-align:center; color:var(--text-muted); padding:10px;">Aucun joueur enregistré pour le moment. Connectez-vous pour apparaître !</div>';
     return;
   }
 
@@ -267,7 +299,7 @@ function updateAuthUI() {
   }
 }
 
-// Utilitaires
+// Utilitaires de jeu
 function handleWheelBet(event, gameType) {
   event.preventDefault();
   let direction = event.deltaY < 0 ? 1 : -1;

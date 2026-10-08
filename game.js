@@ -127,7 +127,7 @@ function resetProfile() {
   }
 }
 
-// Gestion des modales séparées
+// Gestion des modales
 function openStatsModal() {
   let hrs = Math.floor(gameSeconds / 3600);
   let mins = Math.floor((gameSeconds % 3600) / 60);
@@ -164,8 +164,8 @@ function closeLeaderboardModal() {
   document.getElementById('leaderboard-modal-bg').style.display = 'none';
 }
 
-// Connexion Google (Gmail) via Supabase Auth
-async function triggerGoogleOneTap() {
+// Connexion Google via Supabase OAuth
+async function handleGoogleLogin() {
   if (currentUser) {
     if (confirm(`Se déconnecter de ${currentUser.email} (${currentPseudo}) ?`)) {
       await supabase.auth.signOut();
@@ -278,7 +278,7 @@ function updateAuthUI() {
   }
 }
 
-// Fonctions utilitaires de mise & interface
+// Utilitaires
 function handleWheelBet(event, gameType) {
   event.preventDefault();
   let direction = event.deltaY < 0 ? 1 : -1;

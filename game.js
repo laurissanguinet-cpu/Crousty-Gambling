@@ -130,11 +130,12 @@ async function saveGame() {
 
   if (currentUserEmail && db) {
     try {
-      // On envoie la variable passiveIncomePerSec dans la colonne money de Supabase pour le classement
+      // On envoie séparément l'argent et le revenu passif dans leurs colonnes dédiées
       await db.from('players').upsert({
         email: currentUserEmail,
         pseudo: currentPseudo || currentUserEmail.split('@')[0],
-        money: passiveIncomePerSec,
+        money: money,
+        passive_income: passiveIncomePerSec,
         save_data: data,
         updated_at: new Date()
       }, { onConflict: 'email' });
@@ -313,10 +314,11 @@ async function fetchLeaderboard() {
   }
 
   try {
+    // On trie désormais spécifiquement par la colonne passive_income
     const { data, error } = await db
       .from('players')
-      .select('pseudo, money')
-      .order('money', { ascending: false })
+      .select('pseudo, passive_income')
+      .order('passive_income', { ascending: false })
       .limit(10);
 
     if (error) {
@@ -334,7 +336,7 @@ async function fetchLeaderboard() {
       let medals = ['🥇', '🥈', '🥉'];
       let rankIcon = medals[index] || `#${index + 1}`;
       let playerName = player.pseudo || "Anonyme";
-      let ratePerSec = player.money || 0;
+      let ratePerSec = player.passive_income || 0;
 
       const row = document.createElement('div');
       row.className = 'stat-row';

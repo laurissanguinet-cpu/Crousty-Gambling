@@ -1,5 +1,4 @@
 // --- CONFIGURATION SUPABASE ---
-// --- CONFIGURATION SUPABASE ---
 if (typeof supabase === 'undefined') {
   var supabase = window.supabase.createClient(
     'https://abubtdiuhbxmklbhyhbw.supabase.co',
@@ -39,7 +38,6 @@ function initRain() {
       img.onerror = () => { img.src = 'crousty.jpg'; };
       item.appendChild(img);
     }
-
     container.appendChild(item);
   }
 }
@@ -129,29 +127,45 @@ function resetProfile() {
   }
 }
 
-// Gestion des onglets de la modale
-function switchModalTab(tabName) {
-  const btnStats = document.getElementById('tab-btn-stats');
-  const btnLeaderboard = document.getElementById('tab-btn-leaderboard');
-  const contentStats = document.getElementById('tab-content-stats');
-  const contentLeaderboard = document.getElementById('tab-content-leaderboard');
+// Gestion des modales séparées
+function openStatsModal() {
+  let hrs = Math.floor(gameSeconds / 3600);
+  let mins = Math.floor((gameSeconds % 3600) / 60);
+  let secs = gameSeconds % 60;
+  let timeStr = hrs > 0 ? `${hrs} h ${mins} min ${secs < 10 ? '0' : ''}${secs} s` : `${mins} min ${secs < 10 ? '0' : ''}${secs} s`;
+  document.getElementById('stat-time').innerText = timeStr;
+  document.getElementById('stat-earned').innerText = formatMoney(totalMoneyEarned);
 
-  if (tabName === 'stats') {
-    btnStats.classList.add('active');
-    btnLeaderboard.classList.remove('active');
-    contentStats.style.display = 'block';
-    contentLeaderboard.style.display = 'none';
-  } else {
-    btnLeaderboard.classList.add('active');
-    btnStats.classList.remove('active');
-    contentLeaderboard.style.display = 'block';
-    contentStats.style.display = 'none';
-    fetchLeaderboard();
-  }
+  document.getElementById('stat-roulette-earned').innerText = formatMoney(rouletteTotalEarned);
+  document.getElementById('stat-roulette-max').innerText = formatMoney(rouletteMaxGain);
+  let rWr = rouletteTotalGames > 0 ? Math.round((rouletteWins / rouletteTotalGames) * 100) : 0;
+  document.getElementById('stat-roulette-wr').innerText = `${rWr} %`;
+  document.getElementById('stat-green-wins').innerText = greenWinsCount;
+
+  document.getElementById('stat-bj-earned').innerText = formatMoney(bjTotalEarned);
+  document.getElementById('stat-bj-max').innerText = formatMoney(bjMaxGain);
+  let bjWr = bjTotalGames > 0 ? Math.round((bjWins / bjTotalGames) * 100) : 0;
+  document.getElementById('stat-bj-wr').innerText = `${bjWr} %`;
+  document.getElementById('stat-natural-bj').innerText = naturalBjCount;
+
+  document.getElementById('stats-modal-bg').style.display = 'flex';
 }
 
-// Connexion Google avec choix de pseudo
-async function handleGoogleLogin() {
+function closeStatsModal() {
+  document.getElementById('stats-modal-bg').style.display = 'none';
+}
+
+function openLeaderboardModal() {
+  document.getElementById('leaderboard-modal-bg').style.display = 'flex';
+  fetchLeaderboard();
+}
+
+function closeLeaderboardModal() {
+  document.getElementById('leaderboard-modal-bg').style.display = 'none';
+}
+
+// Connexion Google (Gmail) via Supabase Auth
+async function triggerGoogleOneTap() {
   if (currentUser) {
     if (confirm(`Se déconnecter de ${currentUser.email} (${currentPseudo}) ?`)) {
       await supabase.auth.signOut();
@@ -196,17 +210,14 @@ async function checkUserSession() {
 async function checkOrAskPseudo() {
   if (!currentUser) return;
 
-  // Vérifier si le joueur a déjà un pseudo dans la base de données
   const { data } = await supabase.from('players').select('pseudo').eq('email', currentUser.email).single();
 
   if (data && data.pseudo) {
     currentPseudo = data.pseudo;
   } else {
-    // Demander un pseudo s'il n'en a pas encore
     let chosenPseudo = prompt("Bienvenue sur Crousty Gambling ! Choisissez votre pseudo pour le classement mondial :", currentUser.email.split('@')[0]);
     currentPseudo = chosenPseudo && chosenPseudo.trim() !== "" ? chosenPseudo.trim() : currentUser.email.split('@')[0];
     
-    // Sauvegarder dans Supabase
     await supabase.from('players').upsert({
       email: currentUser.email,
       pseudo: currentPseudo,
@@ -259,18 +270,15 @@ async function fetchLeaderboard() {
 }
 
 function updateAuthUI() {
-  const statusText = document.getElementById('auth-status-text');
   const label = document.getElementById('auth-btn-label');
   if (currentUser) {
-    statusText.innerHTML = `Connecté : <span style="color:var(--green);">${currentPseudo || currentUser.email}</span>`;
-    label.innerText = "Se déconnecter";
+    label.innerText = currentPseudo || currentUser.email.split('@')[0];
   } else {
-    statusText.innerText = "Statut : Non connecté";
-    label.innerText = "Se connecter avec Gmail";
+    label.innerText = "Connexion Gmail";
   }
 }
 
-// Gestion de la molette sur les champs de mise
+// Fonctions utilitaires de mise & interface
 function handleWheelBet(event, gameType) {
   event.preventDefault();
   let direction = event.deltaY < 0 ? 1 : -1;
@@ -295,9 +303,7 @@ function formatMoney(amount) {
 function calcBetAmount(percent) {
   if (money <= 0) return 0.01;
   let totalCents = Math.round(money * 100);
-  if (percent >= 1.0) {
-    return Math.max(0.01, totalCents / 100);
-  }
+  if (percent >= 1.0) return Math.max(0.01, totalCents / 100);
   let betCents = Math.floor((totalCents * percent) + 0.00001);
   return Math.max(0.01, betCents / 100);
 }
@@ -384,47 +390,15 @@ function applyDepositPercent(percent) {
 function confirmDeposit() {
   const input = document.getElementById('deposit-input');
   let amount = parseFloat(input.value);
-
   if (isNaN(amount) || amount <= 0) return alert("Montant invalide !");
   if (money < amount) return alert("Fonds insuffisants !");
-
   money -= amount;
   bankMoney += amount;
-
   closeDepositModal();
   updateUI();
 }
 
-function openStatsModal() {
-  let hrs = Math.floor(gameSeconds / 3600);
-  let mins = Math.floor((gameSeconds % 3600) / 60);
-  let secs = gameSeconds % 60;
-  let timeStr = hrs > 0 ? `${hrs} h ${mins} min ${secs < 10 ? '0' : ''}${secs} s` : `${mins} min ${secs < 10 ? '0' : ''}${secs} s`;
-  document.getElementById('stat-time').innerText = timeStr;
-  
-  document.getElementById('stat-earned').innerText = formatMoney(totalMoneyEarned);
-
-  document.getElementById('stat-roulette-earned').innerText = formatMoney(rouletteTotalEarned);
-  document.getElementById('stat-roulette-max').innerText = formatMoney(rouletteMaxGain);
-  let rWr = rouletteTotalGames > 0 ? Math.round((rouletteWins / rouletteTotalGames) * 100) : 0;
-  document.getElementById('stat-roulette-wr').innerText = `${rWr} %`;
-  document.getElementById('stat-green-wins').innerText = greenWinsCount;
-
-  document.getElementById('stat-bj-earned').innerText = formatMoney(bjTotalEarned);
-  document.getElementById('stat-bj-max').innerText = formatMoney(bjMaxGain);
-  let bjWr = bjTotalGames > 0 ? Math.round((bjWins / bjTotalGames) * 100) : 0;
-  document.getElementById('stat-bj-wr').innerText = `${bjWr} %`;
-  document.getElementById('stat-natural-bj').innerText = naturalBjCount;
-
-  switchModalTab('stats');
-  document.getElementById('stats-modal-bg').style.display = 'flex';
-}
-
-function closeStatsModal() {
-  document.getElementById('stats-modal-bg').style.display = 'none';
-}
-
-// BOUCLE TEMPORELLE PRINCIPALE
+// Boucle principale
 setInterval(() => {
   gameSeconds = Math.floor((Date.now() - sessionStartTime) / 1000);
 
@@ -437,28 +411,24 @@ setInterval(() => {
         money += gain;
         totalMoneyEarned += gain;
         triggerWalletPulse('win');
-
         const vaultBox = document.getElementById('vault-box-container');
         const span = document.createElement('span');
         span.className = 'floating-gain';
         span.innerText = `+${formatMoney(gain)}`;
         vaultBox.appendChild(span);
         setTimeout(() => span.remove(), 850);
-
         updateUI();
       }
     }
   }
   document.getElementById('vault-countdown').innerText = bankTimer.toFixed(1).replace('.', ',') + " s";
-  let progressPercent = ((10.0 - bankTimer) / 10.0) * 100;
-  document.getElementById('vault-timer-bar').style.width = progressPercent + "%";
+  document.getElementById('vault-timer-bar').style.width = (((10.0 - bankTimer) / 10.0) * 100) + "%";
 
   if (crousties >= 1 && !croustyProductionFinished) {
     croustyMinuteTimer -= 0.1;
     if (croustyMinuteTimer <= 0.05) {
       croustyMinuteTimer = 0;
       croustyProductionFinished = true;
-      
       let totalGain = crousties * croustyIncomePerMin;
       document.getElementById('crousty-countdown').innerText = "Prêt !";
       document.getElementById('crousty-progress-bar').style.width = "100%";
@@ -466,8 +436,7 @@ setInterval(() => {
       document.getElementById('collect-amount').innerText = formatMoney(totalGain);
     } else {
       document.getElementById('crousty-countdown').innerText = croustyMinuteTimer.toFixed(1).replace('.', ',') + " s";
-      let croustyProgress = ((60.0 - croustyMinuteTimer) / 60.0) * 100;
-      document.getElementById('crousty-progress-bar').style.width = croustyProgress + "%";
+      document.getElementById('crousty-progress-bar').style.width = (((60.0 - croustyMinuteTimer) / 60.0) * 100) + "%";
     }
   }
 }, 100);
@@ -475,7 +444,6 @@ setInterval(() => {
 function collectCroustyRevenue() {
   let totalGain = crousties * croustyIncomePerMin;
   if (totalGain <= 0) return;
-
   money += totalGain;
   totalMoneyEarned += totalGain;
   triggerWalletPulse('win');
@@ -490,7 +458,6 @@ function collectCroustyRevenue() {
   croustyMinuteTimer = 60.0;
   croustyProductionFinished = false;
   document.getElementById('btn-collect').style.display = 'none';
-
   updateUI();
 }
 
@@ -511,7 +478,6 @@ function triggerGameFeedback(cardId, bannerId, type, text) {
   const banner = document.getElementById(bannerId);
   banner.className = `game-result-banner banner-${type} active`;
   banner.innerHTML = text;
-
   triggerWalletPulse(type === 'win' ? 'win' : (type === 'lose' ? 'lose' : ''));
   setTimeout(() => banner.classList.remove('active'), 1500);
 }
@@ -523,7 +489,6 @@ function triggerStreetAction() {
   const card = document.getElementById('street-box');
   const btn = document.getElementById('btn-street');
   const bar = document.getElementById('cooldown-fill');
-  
   card.classList.add('on-cooldown');
   btn.disabled = true;
 
@@ -531,22 +496,14 @@ function triggerStreetAction() {
   let gain = 0;
   let isGain = false;
 
-  if (rand < 0.000001) {
-    gain = 1000.00;
-    isGain = true;
-  } else if (rand < 0.005) {
-    gain = 1.00;
-    isGain = true;
-  } else if (rand < 0.10) {
-    gain = parseFloat((Math.random() * (0.16 - 0.08) + 0.08).toFixed(2));
-    isGain = true;
-  }
+  if (rand < 0.000001) { gain = 1000.00; isGain = true; }
+  else if (rand < 0.005) { gain = 1.00; isGain = true; }
+  else if (rand < 0.10) { gain = parseFloat((Math.random() * (0.16 - 0.08) + 0.08).toFixed(2)); isGain = true; }
 
   if (isGain) {
     money += gain;
     totalMoneyEarned += gain;
     triggerWalletPulse('win');
-    
     const box = document.getElementById('street-box');
     const span = document.createElement('span');
     span.className = 'floating-gain';
@@ -563,11 +520,9 @@ function triggerStreetAction() {
     bar.style.transition = 'none';
     bar.style.width = '0%';
     currentActionIdx = (currentActionIdx + 1) % streetActions.length;
-    
     const act = streetActions[currentActionIdx];
     document.getElementById('street-icon').innerText = act.icon;
     document.getElementById('street-label').innerText = act.label;
-    
     btn.disabled = false;
     card.classList.remove('on-cooldown');
     isActionOnCooldown = false;

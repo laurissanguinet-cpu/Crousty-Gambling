@@ -8,8 +8,10 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
-  <!-- Client officiel Supabase -->
+  <!-- Client Supabase -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Script Google Identity Services pour la sélection native de compte Gmail -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 
@@ -17,9 +19,19 @@
   <div id="rain-container"></div>
 
   <header>
+    <!-- Les 3 boutons demandés superposés à droite -->
     <div class="header-action-buttons">
-      <button class="btn-stats-open" onclick="openStatsModal()">
-        <span>📊</span> Menu & Classement
+      <!-- 1. Bouton Statistiques (Rouge) -->
+      <button class="btn-menu-action btn-stats-action" onclick="openStatsModal()">
+        <span>📊</span> Statistiques
+      </button>
+      <!-- 2. Bouton Classement (Vert) -->
+      <button class="btn-menu-action btn-leaderboard-action" onclick="openLeaderboardModal()">
+        <span>🌐</span> Classement
+      </button>
+      <!-- 3. Bouton Connexion Gmail (Bleu) -->
+      <button class="btn-menu-action btn-auth-action" id="btn-auth-action" onclick="triggerGoogleOneTap()">
+        <span>🔑</span> <span id="auth-btn-label">Connexion Gmail</span>
       </button>
     </div>
 
@@ -77,9 +89,7 @@
     <!-- COLONNE 1 : ROULETTE -->
     <div class="card riveted-plate" id="card-roulette">
       <div id="roulette-banner" class="game-result-banner"></div>
-
       <h2>🎡 Roulette</h2>
-      
       <div class="roulette-container">
         <div class="canvas-wrapper">
           <div class="roulette-pointer"></div>
@@ -90,7 +100,6 @@
           <div id="roulette-history" style="display: flex; gap: 5px;"></div>
         </div>
       </div>
-
       <div class="bet-panel">
         <div class="bet-control-row">
           <div class="bet-stepper">
@@ -106,7 +115,6 @@
           <button class="chip-max" id="r-bet-100" onclick="applyPercentBet('roulette', 1.00)">Max</button>
         </div>
       </div>
-
       <div class="tapis-bets">
         <button class="btn-red" id="btn-r-rouge" onclick="playRoulette('rouge')">Rouge</button>
         <button class="btn-black" id="btn-r-noir" onclick="playRoulette('noir')">Noir</button>
@@ -117,9 +125,7 @@
     <!-- COLONNE 2 : BLACKJACK -->
     <div class="card riveted-plate" id="card-bj">
       <div id="bj-banner" class="game-result-banner"></div>
-
       <h2>🃏 Blackjack</h2>
-
       <div class="table-felt">
         <div class="hand-container">
           <div class="hand-header">Croupier (<span id="dealer-score">0</span>)</div>
@@ -127,7 +133,6 @@
             <div class="playing-card back">?</div>
           </div>
         </div>
-
         <div id="hands-area-wrapper">
           <div class="hand-container" id="player-hand-container-1">
             <div class="hand-header">Joueur (<span id="player-score-1">0</span>)</div>
@@ -139,7 +144,6 @@
           </div>
         </div>
       </div>
-
       <div id="bj-betting-area" class="bet-panel" style="margin-top: 15px;">
         <div class="bet-control-row">
           <div class="bet-stepper">
@@ -156,7 +160,6 @@
         </div>
         <button id="btn-bj-deal" style="width: 100%; margin-top: 10px;" onclick="startBlackjack()">Distribuer</button>
       </div>
-
       <div id="bj-actions" style="display: none; margin-top: 15px; gap: 8px;">
         <button id="btn-bj-hit" style="flex: 1; padding: 10px; font-size: 0.9rem;" onclick="bjHit()">🃏 Carte</button>
         <button id="btn-bj-split" style="flex: 1; padding: 10px; font-size: 0.9rem; background: #8b5cf6; display: none;" onclick="bjSplit()">✂️ Split</button>
@@ -167,20 +170,17 @@
     <!-- COLONNE 3 : CROUSTY -->
     <div class="card riveted-plate" id="card-crousty">
       <h2>🍗 Crousty</h2>
-
       <div id="crousty-lock-overlay" class="crousty-lock-overlay">
         <div class="crousty-lock-icon">🔒</div>
         <button id="btn-first-crousty" class="btn-first-crousty" onclick="buyCrousty()">
           Acheter (10,00 €)
         </button>
       </div>
-
       <div class="crousty-visual-box">
         <div class="crousty-frame">
           <img id="crousty-img" src="crousty.png" alt="Crousty" draggable="false" onerror="this.src='crousty.jpg'" />
           <div class="crousty-tag" id="crousty-multiplier">x1</div>
         </div>
-
         <div class="crousty-timer-container" id="crousty-timer-box">
           <div class="crousty-timer-row">
             <span>Production (1 min) :</span>
@@ -194,7 +194,6 @@
           </button>
         </div>
       </div>
-
       <button class="crousty-btn" id="buy-crousty" onclick="buyCrousty()">
         Acheter un Crousty (<span id="crousty-cost">10,00</span> €)
       </button>
@@ -208,18 +207,15 @@
       <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0; line-height: 1.4;">
         L'argent déposé est <strong>bloqué définitivement</strong>. Il génère <strong>+1,0 % d'intérêts</strong> versés sur ton portefeuille à la fin de chaque cycle de 10 secondes.
       </p>
-
       <div class="percent-grid" style="margin: 15px 0;">
         <button class="chip-percent" onclick="applyDepositPercent(0.25)">25 %</button>
         <button class="chip-percent" onclick="applyDepositPercent(0.50)">50 %</button>
         <button class="chip-percent" onclick="applyDepositPercent(0.75)">75 %</button>
         <button class="chip-max" onclick="applyDepositPercent(1.00)">Tout</button>
       </div>
-
       <div style="display: flex; gap: 8px; margin-bottom: 15px;">
         <input type="number" id="deposit-input" class="bet-input-clean" style="border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; width: 100%; text-align: left; padding: 10px;" value="1.00" min="0.01" step="0.50" />
       </div>
-
       <div style="display: flex; gap: 10px;">
         <button style="flex: 1; background: #334155;" onclick="closeDepositModal()">Annuler</button>
         <button style="flex: 1; background: var(--bank-blue); color: #082f49;" onclick="confirmDeposit()">Déposer</button>
@@ -227,89 +223,41 @@
     </div>
   </div>
 
-  <!-- POPUP STATISTIQUES, CLASSEMENT ET CONNEXION SÉPARÉS -->
+  <!-- POPUP STATISTIQUES -->
   <div id="stats-modal-bg" class="stats-modal-bg" onclick="closeStatsModal(event)">
     <div class="stats-modal" onclick="event.stopPropagation()">
-      <h3>📊 Centre de Contrôle</h3>
-
-      <!-- Onglets distincts -->
-      <div class="modal-tabs">
-        <button id="tab-btn-stats" class="tab-btn active" onclick="switchModalTab('stats')">📈 Statistiques</button>
-        <button id="tab-btn-leaderboard" class="tab-btn" onclick="switchModalTab('leaderboard')">🌐 Classement</button>
-      </div>
-
-      <!-- Contenu Onglet Statistiques -->
-      <div id="tab-content-stats" class="tab-content active">
-        <div class="stat-section-title">Général</div>
-        <div class="stat-row">
-          <span class="stat-label">Temps de jeu :</span>
-          <span class="stat-value" id="stat-time">0 min 00 s</span>
-        </div>
-        <div class="stat-row">
-          <span class="stat-label">Argent total gagné :</span>
-          <span class="stat-value" id="stat-earned">0,00 €</span>
-        </div>
-
-        <div class="stat-section-title">Roulette</div>
-        <div class="stat-row">
-          <span class="stat-label">Gains Roulette :</span>
-          <span class="stat-value" id="stat-roulette-earned">0,00 €</span>
-        </div>
-        <div class="stat-row">
-          <span class="stat-label">Plus gros gain :</span>
-          <span class="stat-value" id="stat-roulette-max">0,00 €</span>
-        </div>
-        <div class="stat-row">
-          <span class="stat-label">Taux de réussite :</span>
-          <span class="stat-value" id="stat-roulette-wr">0 %</span>
-        </div>
-        <div class="stat-row">
-          <span class="stat-label">Verts gagnés (0) :</span>
-          <span class="stat-value" id="stat-green-wins">0</span>
-        </div>
-
-        <div class="stat-section-title">Blackjack</div>
-        <div class="stat-row">
-          <span class="stat-label">Gains Blackjack :</span>
-          <span class="stat-value" id="stat-bj-earned">0,00 €</span>
-        </div>
-        <div class="stat-row">
-          <span class="stat-label">Plus gros gain :</span>
-          <span class="stat-value" id="stat-bj-max">0,00 €</span>
-        </div>
-        <div class="stat-row">
-          <span class="stat-label">Taux de réussite :</span>
-          <span class="stat-value" id="stat-bj-wr">0 %</span>
-        </div>
-        <div class="stat-row">
-          <span class="stat-label">Blackjacks naturels :</span>
-          <span class="stat-value" id="stat-natural-bj">0</span>
-        </div>
-      </div>
-
-      <!-- Contenu Onglet Classement -->
-      <div id="tab-content-leaderboard" class="tab-content" style="display: none;">
-        <div class="stat-section-title" style="margin-top:0;">Top Tycoons Mondiaux</div>
-        <div id="leaderboard-list" style="display: flex; flex-direction: column; gap: 6px; max-height: 180px; overflow-y: auto; margin-bottom: 15px;">
-          <div class="stat-row" style="background: #162030; padding: 8px 10px; border-radius: 8px;">
-            <span>🥇 <strong>CroustyKing99</strong></span>
-            <span style="color: var(--accent);">45 230,00 €</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Bouton de Connexion Gmail placé en dessous des onglets -->
-      <div class="auth-section-box">
-        <div id="auth-status-text" style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 6px; text-align: center;">Statut : Non connecté</div>
-        <button class="btn-auth-modal" id="btn-auth-modal" onclick="handleGoogleLogin()">
-          <span>🌐</span> <span id="auth-btn-label">Se connecter avec Gmail</span>
-        </button>
-      </div>
-
-      <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 15px;">
+      <h3>📈 Statistiques du Tycoon</h3>
+      <div class="stat-section-title">Général</div>
+      <div class="stat-row"><span class="stat-label">Temps de jeu :</span><span class="stat-value" id="stat-time">0 min 00 s</span></div>
+      <div class="stat-row"><span class="stat-label">Argent total gagné :</span><span class="stat-value" id="stat-earned">0,00 €</span></div>
+      <div class="stat-section-title">Roulette</div>
+      <div class="stat-row"><span class="stat-label">Gains Roulette :</span><span class="stat-value" id="stat-roulette-earned">0,00 €</span></div>
+      <div class="stat-row"><span class="stat-label">Plus gros gain :</span><span class="stat-value" id="stat-roulette-max">0,00 €</span></div>
+      <div class="stat-row"><span class="stat-label">Taux de réussite :</span><span class="stat-value" id="stat-roulette-wr">0 %</span></div>
+      <div class="stat-row"><span class="stat-label">Verts gagnés (0) :</span><span class="stat-value" id="stat-green-wins">0</span></div>
+      <div class="stat-section-title">Blackjack</div>
+      <div class="stat-row"><span class="stat-label">Gains Blackjack :</span><span class="stat-value" id="stat-bj-earned">0,00 €</span></div>
+      <div class="stat-row"><span class="stat-label">Plus gros gain :</span><span class="stat-value" id="stat-bj-max">0,00 €</span></div>
+      <div class="stat-row"><span class="stat-label">Taux de réussite :</span><span class="stat-value" id="stat-bj-wr">0 %</span></div>
+      <div class="stat-row"><span class="stat-label">Blackjacks naturels :</span><span class="stat-value" id="stat-natural-bj">0</span></div>
+      <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 20px;">
         <button style="background: var(--red); color: white;" onclick="resetProfile()">⚠ Réinitialiser le profil</button>
         <button style="background: #334155;" onclick="closeStatsModal()">Fermer</button>
       </div>
+    </div>
+  </div>
+
+  <!-- POPUP CLASSEMENT MONDIAL -->
+  <div id="leaderboard-modal-bg" class="stats-modal-bg" onclick="closeLeaderboardModal(event)">
+    <div class="stats-modal" onclick="event.stopPropagation()">
+      <h3>🌐 Classement Mondial</h3>
+      <div class="stat-section-title" style="margin-top:0;">Top Tycoons</div>
+      <div id="leaderboard-list" style="display: flex; flex-direction: column; gap: 6px; max-height: 250px; overflow-y: auto; margin-bottom: 15px;">
+        <div class="stat-row" style="background: #162030; padding: 8px 10px; border-radius: 8px;">
+          <span>🥇 <strong>Chargement...</strong></span>
+        </div>
+      </div>
+      <button style="width: 100%; background: #334155;" onclick="closeLeaderboardModal()">Fermer</button>
     </div>
   </div>
 

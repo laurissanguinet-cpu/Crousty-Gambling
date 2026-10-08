@@ -6,7 +6,7 @@ if (typeof supabase === 'undefined') {
   );
 }
 
-let currentUser = null;
+let currentUserEmail = null;
 let currentPseudo = null;
 
 // --- PLUIE DE JETONS ET DE CROUSTIES AGRANDIS ---
@@ -93,6 +93,7 @@ function loadGame() {
       bjTotalEarned = data.bjTotalEarned ?? 0.00;
       bjMaxGain = data.bjMaxGain ?? 0.00;
       naturalBjCount = data.naturalBjCount ?? 0;
+      currentUserEmail = data.currentUserEmail ?? null;
       currentPseudo = data.currentPseudo ?? null;
     } catch (e) {
       console.error("Erreur chargement sauvegarde", e);
@@ -105,14 +106,15 @@ async function saveGame() {
   const data = {
     money, bankMoney, crousties, gameSeconds, totalMoneyEarned,
     rouletteTotalGames, rouletteWins, rouletteTotalEarned, rouletteMaxGain, greenWinsCount,
-    bjTotalGames, bjWins, bjTotalEarned, bjMaxGain, naturalBjCount, currentPseudo
+    bjTotalGames, bjWins, bjTotalEarned, bjMaxGain, naturalBjCount, currentUserEmail, currentPseudo
   };
   localStorage.setItem('croustyTycoonSave', JSON.stringify(data));
 
-  if (currentUser) {
+  // Si l'utilisateur est connecté, on enregistre directement ses stats et son pseudo dans la table Supabase
+  if (currentUserEmail && currentPseudo) {
     await supabase.from('players').upsert({
-      email: currentUser.email,
-      pseudo: currentPseudo || currentUser.email.split('@')[0],
+      email: currentUserEmail,
+      pseudo: currentPseudo,
       money: money,
       save_data: data,
       updated_at: new Date()
@@ -164,106 +166,85 @@ function closeLeaderboardModal() {
   document.getElementById('leaderboard-modal-bg').style.display = 'none';
 }
 
-// Connexion simple par e-mail
-async function handleGoogleLogin() {
-  if (currentUser) {
-    if (confirm(`Se déconnecter de ${currentUser.email} (${currentPseudo}) ?`)) {
-      await supabase.auth.signOut();
-      currentUser = null;
-      currentPseudo = null;
-      updateAuthUI();
-      alert("Déconnecté avec succès.");
-    }
-    return;
-  }
+// Gestion de la modale de connexion personnalisée
+function openAuthModal() {
+  const formBox = document.getElementById('auth-form-container');
+  const loggedBox = document.getElementById('auth-logged-container');
+  const infoText = document.getElementById('logged-user-info');
 
-  let email = prompt("Entrez votre adresse e-mail pour vous connecter ou créer un compte :");
-  if (!email || !email.includes('@')) {
-    if (email !== null) alert("Veuillez entrer une adresse e-mail valide.");
-    return;
-  }
-
-  const { error } = await supabase.auth.signInWithOtp({
-    email: email.trim(),
-    options: {
-      emailRedirectTo: window.location.origin + window.location.pathname
-    }
-  });
-
-  if (error) {
-    alert("Erreur : " + error.message);
+  if (currentUserEmail) {
+    formBox.style.display = 'none';
+    loggedBox.style.display = 'block';
+    infoText.innerText = `Connecté en tant que : ${currentPseudo} (${currentUserEmail})`;
   } else {
-    alert(`Un lien de connexion magique a été envoyé à ${email}. Vérifiez votre boîte mail !`);
+    formBox.style.display = 'block';
+    loggedBox.style.display = 'none';
+    document.getElementById('auth-email-input').value = '';
+    document.getElementById('auth-pseudo-input').value = '';
+  }
+  document.getElementById('auth-modal-bg').style.display = 'flex';
+}
+
+function closeAuthModal(event) {
+  if (!event || event.target.id === 'auth-modal-bg') {
+    document.getElementById('auth-modal-bg').style.display = 'none';
   }
 }
 
-async function checkUserSession() {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (session) {
-    currentUser = session.user;
-    await checkOrAskPseudo();
+async function submitCustomLogin() {
+  const emailInput = document.getElementById('auth-email-input').value.trim();
+  const pseudoInput = document.getElementById('auth-pseudo-input').value.trim();
+
+  if (!emailInput || !emailInput.includes('@')) {
+    return alert("Veuillez entrer une adresse e-mail valide !");
+  }
+  if (!pseudoInput) {
+    return alert("Veuillez choisir un pseudo !");
+  }
+
+  currentUserEmail = emailInput;
+  currentPseudo = pseudoInput;
+
+  // Enregistrement immédiat dans Supabase
+  await saveGame();
+  updateAuthUI();
+  document.getElementById('auth-modal-bg').style.display = 'none';
+  alert(`Connexion réussie ! Bienvenue ${currentPseudo}.`);
+}
+
+function logoutCustomUser() {
+  if (confirm("Voulez-vous vous déconnecter ?")) {
+    currentUserEmail = null;
+    currentPseudo = null;
+    saveGame();
     updateAuthUI();
-    loadCloudSave();
-  }
-  supabase.auth.onAuthStateChange(async (event, session) => {
-    if (session) {
-      currentUser = session.user;
-      await checkOrAskPseudo();
-      updateAuthUI();
-      loadCloudSave();
-    }
-  });
-}
-
-async function checkOrAskPseudo() {
-  if (!currentUser) return;
-
-  const { data } = await supabase.from('players').select('pseudo').eq('email', currentUser.email).single();
-
-  if (data && data.pseudo) {
-    currentPseudo = data.pseudo;
-  } else {
-    let chosenPseudo = prompt("Bienvenue sur Crousty Gambling ! Choisissez votre pseudo pour le classement mondial :", currentUser.email.split('@')[0]);
-    currentPseudo = chosenPseudo && chosenPseudo.trim() !== "" ? chosenPseudo.trim() : currentUser.email.split('@')[0];
-    
-    await supabase.from('players').upsert({
-      email: currentUser.email,
-      pseudo: currentPseudo,
-      money: money,
-      updated_at: new Date()
-    }, { onConflict: 'email' });
-  }
-}
-
-async function loadCloudSave() {
-  if (!currentUser) return;
-  const { data } = await supabase.from('players').select('save_data, pseudo').eq('email', currentUser.email).single();
-  if (data) {
-    if (data.pseudo) currentPseudo = data.pseudo;
-    if (data.save_data) {
-      let s = data.save_data;
-      money = s.money ?? money;
-      bankMoney = s.bankMoney ?? bankMoney;
-      crousties = s.crousties ?? crousties;
-      totalMoneyEarned = s.totalMoneyEarned ?? totalMoneyEarned;
-      updateUI();
-    }
+    document.getElementById('auth-modal-bg').style.display = 'none';
+    alert("Vous êtes déconnecté.");
   }
 }
 
 async function fetchLeaderboard() {
   const listEl = document.getElementById('leaderboard-list');
   if (!listEl) return;
-  listEl.innerHTML = '<div style="text-align:center; color:var(--text-muted); padding:10px;">Chargement...</div>';
+  listEl.innerHTML = '<div style="text-align:center; color:var(--text-muted); padding:10px;">Chargement du classement...</div>';
 
-  const { data, error } = await supabase.from('players').select('pseudo, money').order('money', { ascending: false }).limit(10);
+  const { data, error } = await supabase
+    .from('players')
+    .select('pseudo, money')
+    .order('money', { ascending: false })
+    .limit(10);
 
   if (error || !data) {
-    listEl.innerHTML = '<div style="text-align:center; color:var(--red);">Erreur de chargement.</div>';
+    listEl.innerHTML = '<div style="text-align:center; color:var(--red);">Erreur de chargement du classement.</div>';
     return;
   }
 
   listEl.innerHTML = '';
+  if (data.length === 0) {
+    listEl.innerHTML = '<div style="text-align:center; color:var(--text-muted); padding:10px;">Aucun joueur enregistré pour le moment.</div>';
+    return;
+  }
+
   data.forEach((player, index) => {
     let medals = ['🥇', '🥈', '🥉'];
     let rankIcon = medals[index] || `#${index + 1}`;
@@ -279,8 +260,8 @@ async function fetchLeaderboard() {
 
 function updateAuthUI() {
   const label = document.getElementById('auth-btn-label');
-  if (currentUser) {
-    label.innerText = currentPseudo || currentUser.email.split('@')[0];
+  if (currentUserEmail) {
+    label.innerText = currentPseudo || currentUserEmail.split('@')[0];
   } else {
     label.innerText = "Connexion";
   }
@@ -548,5 +529,5 @@ function buyCrousty() {
 }
 
 loadGame();
-checkUserSession();
+updateAuthUI();
 updateUI();

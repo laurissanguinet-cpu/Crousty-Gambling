@@ -17,7 +17,7 @@
   <div id="rain-container"></div>
 
   <header>
-    <!-- Les 3 boutons verticaux : Statistiques, Classement, Connexion -->
+    <!-- Les 3 boutons verticaux + le message pop-up en dessous -->
     <div class="header-action-buttons">
       <button class="btn-menu-action btn-stats-action" onclick="openStatsModal()">
         <span>📊</span> Statistiques
@@ -28,6 +28,11 @@
       <button class="btn-menu-action btn-auth-action" id="btn-auth-action" onclick="openAuthModal()">
         <span>🔑</span> <span id="auth-btn-label">Connexion</span>
       </button>
+
+      <!-- Pop-up "Prochaine mise à jour bientôt" juste en dessous -->
+      <div class="update-popup-badge">
+        🚀 Prochaine mise à jour bientôt
+      </div>
     </div>
 
     <div class="top-bar">

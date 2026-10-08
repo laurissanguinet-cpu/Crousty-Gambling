@@ -110,15 +110,18 @@ async function saveGame() {
   };
   localStorage.setItem('croustyTycoonSave', JSON.stringify(data));
 
-  // Synchronisation Cloud Supabase si un e-mail est connecté
   if (currentUserEmail) {
-    await supabase.from('players').upsert({
-      email: currentUserEmail,
-      pseudo: currentPseudo || currentUserEmail.split('@')[0],
-      money: money,
-      save_data: data,
-      updated_at: new Date()
-    }, { onConflict: 'email' });
+    try {
+      await supabase.from('players').upsert({
+        email: currentUserEmail,
+        pseudo: currentPseudo || currentUserEmail.split('@')[0],
+        money: money,
+        save_data: data,
+        updated_at: new Date()
+      }, { onConflict: 'email' });
+    } catch (err) {
+      console.error("Erreur de sauvegarde cloud :", err);
+    }
   }
 }
 
@@ -166,7 +169,7 @@ function closeLeaderboardModal() {
   document.getElementById('leaderboard-modal-bg').style.display = 'none';
 }
 
-// Gestion de la modale de connexion par e-mail avec récupération de sauvegarde
+// Gestion de la modale de connexion
 function openAuthModal() {
   const formBox = document.getElementById('auth-form-container');
   const loggedBox = document.getElementById('auth-logged-container');
@@ -205,53 +208,73 @@ async function submitCustomLogin() {
   currentUserEmail = emailInput;
   currentPseudo = pseudoInput;
 
-  // 1. Vérifier si un compte existe déjà dans Supabase pour cet e-mail
-  const { data, error } = await supabase
-    .from('players')
-    .select('money, save_data, pseudo')
-    .eq('email', currentUserEmail)
-    .single();
+  // Interroger Supabase pour récupérer la sauvegarde de cet e-mail s'il existe
+  try {
+    const { data, error } = await supabase
+      .from('players')
+      .select('money, save_data, pseudo')
+      .eq('email', currentUserEmail)
+      .maybeSingle();
 
-  if (data) {
-    // Si la sauvegarde cloud existe, on la récupère !
-    if (data.save_data) {
+    if (data && data.save_data) {
       let s = data.save_data;
-      money = s.money ?? money;
-      bankMoney = s.bankMoney ?? bankMoney;
-      crousties = s.crousties ?? crousties;
-      totalMoneyEarned = s.totalMoneyEarned ?? totalMoneyEarned;
-      rouletteTotalGames = s.rouletteTotalGames ?? rouletteTotalGames;
-      rouletteWins = s.rouletteWins ?? rouletteWins;
-      rouletteTotalEarned = s.rouletteTotalEarned ?? rouletteTotalEarned;
-      rouletteMaxGain = s.rouletteMaxGain ?? rouletteMaxGain;
-      greenWinsCount = s.greenWinsCount ?? greenWinsCount;
-      bjTotalGames = s.bjTotalGames ?? bjTotalGames;
-      bjWins = s.bjWins ?? bjWins;
-      bjTotalEarned = s.bjTotalEarned ?? bjTotalEarned;
-      bjMaxGain = s.bjMaxGain ?? bjMaxGain;
-      naturalBjCount = s.naturalBjCount ?? naturalBjCount;
+      money = s.money ?? 0;
+      bankMoney = s.bankMoney ?? 0;
+      crousties = s.crousties ?? 0;
+      totalMoneyEarned = s.totalMoneyEarned ?? 0;
+      rouletteTotalGames = s.rouletteTotalGames ?? 0;
+      rouletteWins = s.rouletteWins ?? 0;
+      rouletteTotalEarned = s.rouletteTotalEarned ?? 0;
+      rouletteMaxGain = s.rouletteMaxGain ?? 0;
+      greenWinsCount = s.greenWinsCount ?? 0;
+      bjTotalGames = s.bjTotalGames ?? 0;
+      bjWins = s.bjWins ?? 0;
+      bjTotalEarned = s.bjTotalEarned ?? 0;
+      bjMaxGain = s.bjMaxGain ?? 0;
+      naturalBjCount = s.naturalBjCount ?? 0;
+      currentPseudo = data.pseudo || currentPseudo;
+      alert(`Bon retour ${currentPseudo} ! Votre progression a été chargée.`);
+    } else {
+      await saveGame();
+      alert(`Compte créé avec succès ! Bienvenue ${currentPseudo}.`);
     }
-    currentPseudo = data.pseudo || currentPseudo;
-    alert(`Bon retour ${currentPseudo} ! Votre progression a été restaurée depuis le cloud.`);
-  } else {
-    // Sinon, on crée le nouveau joueur dans Supabase
+  } catch (err) {
+    console.error("Erreur de connexion cloud :", err);
     await saveGame();
-    alert(`Compte créé avec succès ! Bienvenue ${currentPseudo}.`);
   }
 
   updateUI();
   updateAuthUI();
-  document.getElementById('auth-modal-bg').style.display = 'none';
+  document.getElementById('auth-modal-bg').style.display = 'none'; // Ferme le menu de connexion
 }
 
 function logoutCustomUser() {
-  if (confirm("Voulez-vous vous déconnecter ?")) {
+  if (confirm("Voulez-vous vous déconnecter ? Votre partie locale sera remise à zéro (vos données restent sur le cloud).")) {
     currentUserEmail = null;
     currentPseudo = null;
-    saveGame();
+    
+    // Remettre toutes les statistiques locales à zéro
+    money = 0.00;
+    bankMoney = 0.00;
+    crousties = 0;
+    gameSeconds = 0;
+    totalMoneyEarned = 0.00;
+    rouletteTotalGames = 0;
+    rouletteWins = 0;
+    rouletteTotalEarned = 0.00;
+    rouletteMaxGain = 0.00;
+    greenWinsCount = 0;
+    bjTotalGames = 0;
+    bjWins = 0;
+    bjTotalEarned = 0.00;
+    bjMaxGain = 0.00;
+    naturalBjCount = 0;
+
+    localStorage.removeItem('croustyTycoonSave');
+    updateUI();
     updateAuthUI();
     document.getElementById('auth-modal-bg').style.display = 'none';
-    alert("Vous êtes déconnecté.");
+    alert("Vous êtes déconnecté. Jeu réinitialisé à zéro.");
   }
 }
 
@@ -260,34 +283,38 @@ async function fetchLeaderboard() {
   if (!listEl) return;
   listEl.innerHTML = '<div style="text-align:center; color:var(--text-muted); padding:10px;">Chargement du classement...</div>';
 
-  const { data, error } = await supabase
-    .from('players')
-    .select('pseudo, money')
-    .order('money', { ascending: false })
-    .limit(10);
+  try {
+    const { data, error } = await supabase
+      .from('players')
+      .select('pseudo, money')
+      .order('money', { ascending: false })
+      .limit(10);
 
-  if (error) {
-    listEl.innerHTML = `<div style="text-align:center; color:var(--red);">Erreur SQL: ${error.message}</div>`;
-    return;
+    if (error) {
+      listEl.innerHTML = `<div style="text-align:center; color:var(--red);">Erreur: ${error.message}</div>`;
+      return;
+    }
+
+    listEl.innerHTML = '';
+    if (!data || data.length === 0) {
+      listEl.innerHTML = '<div style="text-align:center; color:var(--text-muted); padding:10px;">Aucun joueur dans le classement pour l\'instant.</div>';
+      return;
+    }
+
+    data.forEach((player, index) => {
+      let medals = ['🥇', '🥈', '🥉'];
+      let rankIcon = medals[index] || `#${index + 1}`;
+      let playerName = player.pseudo || "Anonyme";
+
+      const row = document.createElement('div');
+      row.className = 'stat-row';
+      row.style.cssText = "background: #162030; padding: 8px 10px; border-radius: 8px;";
+      row.innerHTML = `<span>${rankIcon} <strong>${playerName}</strong></span><span style="color: var(--accent);">${formatMoney(player.money)}</span>`;
+      listEl.appendChild(row);
+    });
+  } catch (err) {
+    listEl.innerHTML = '<div style="text-align:center; color:var(--red);">Impossible de charger le classement.</div>';
   }
-
-  listEl.innerHTML = '';
-  if (!data || data.length === 0) {
-    listEl.innerHTML = '<div style="text-align:center; color:var(--text-muted); padding:10px;">Aucun joueur enregistré pour le moment. Connectez-vous pour apparaître !</div>';
-    return;
-  }
-
-  data.forEach((player, index) => {
-    let medals = ['🥇', '🥈', '🥉'];
-    let rankIcon = medals[index] || `#${index + 1}`;
-    let playerName = player.pseudo || "Anonyme";
-
-    const row = document.createElement('div');
-    row.className = 'stat-row';
-    row.style.cssText = "background: #162030; padding: 8px 10px; border-radius: 8px;";
-    row.innerHTML = `<span>${rankIcon} <strong>${playerName}</strong></span><span style="color: var(--accent);">${formatMoney(player.money)}</span>`;
-    listEl.appendChild(row);
-  });
 }
 
 function updateAuthUI() {
